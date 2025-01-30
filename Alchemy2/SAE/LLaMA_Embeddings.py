@@ -57,7 +57,6 @@ def model_loading(model_id):
 # load trial_prompt and inventory_elements
 def load_trial_prompt_and_inventory_elements(model_size):
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    # script_dir = os.path.abspath('C:/Users/Louanna/Documents/GitHub/LLMs_game/Alchemy2/SAE')
     with open(os.path.join(script_dir, f'../output/data/Llama3_{model_size}_500_results.json'), 'r') as f:
         Llama3_results = json.load(f)
         records_by_player = {}
@@ -327,7 +326,7 @@ def main():
     print(f"trial_prompts: {len(trial_prompts)}")  
     inventory_elements = [record['inventory_elements'] for record in records]
     print(f"inventory_elements: {len(inventory_elements)}")
-    # generate_inventory_embeddings(trial_prompts, inventory_elements, records, model_size)
+    generate_inventory_embeddings(trial_prompts, inventory_elements, records, model_size)
     torch.cuda.empty_cache()
     gc.collect()
     transform_batch_to_layer(model_size, overwrite)

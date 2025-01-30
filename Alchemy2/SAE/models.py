@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Mar 29 10:59:08 2024
-This file is saved for all models that will be used to train and predict human risky choices
-@author: 51027
-"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

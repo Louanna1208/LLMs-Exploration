@@ -25,7 +25,7 @@ def load_embeddings(size,layer):
 
 def load_behavioral_and_model_data():
     # Choose the dataset file based on the 'dataset' argument
-    csv_file = '../output/Llama3_70B_element_value.csv'
+    csv_file = '../output/data/Llama3_70B_element_value.csv'
 
     df = pd.read_csv(csv_file)
     df.columns = ['id', 'trial', 'element', 'choice', 'cbu_value', 'cbv_value', 'recency_value', 'empowerment_value']
