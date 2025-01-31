@@ -41,8 +41,8 @@ class SparseAutoEncoder(nn.Module):
         features = self.activation(self.encoder(x))
         x_reconstruct = self.decoder(features)
         reconstruct_loss = F.mse_loss(x_reconstruct, x)
-        l1_penalty = torch.sum(features * torch.norm(self.encoder.weight, p=2, dim=-1))
-        return reconstruct_loss, l1_penalty, x_reconstruct, features
+        l2_penalty = torch.sum(features * torch.norm(self.encoder.weight, p=2, dim=-1))
+        return reconstruct_loss, l2_penalty, x_reconstruct, features
     
     def encode(self, x):
         return self.encoder(x)

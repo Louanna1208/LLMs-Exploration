@@ -123,14 +123,13 @@ def train_layer_SAE(model_size,layer):
     # Set number of epochs
 
     reconstruction_losses_list = []
-    l1_penalties_list = []
-
+    l2_penalties_list = []
     # Training loop in tqdm
     for epoch in range(config['num_epochs']):
         sae_model.train()  # Set model to training mode
         epoch_loss = 0
         reconstruction_losses = []
-        l1_penalties = []
+        l2_penalties = []
         # gradually increase the lamda as the epoch increases
         config['lambda'] = min(config['max_lambda'], config['lambda']  + 1e-6 )
         for batch_idx, (inputs,) in enumerate(train_loader):
@@ -139,13 +138,13 @@ def train_layer_SAE(model_size,layer):
             optimizer.zero_grad()  # Reset gradients
         
             # Forward pass
-            reconstruction_loss, l1_penalty, reconstructed_data, encoded_features = sae_model(inputs)
+            reconstruction_loss, l2_penalty, reconstructed_data, encoded_features = sae_model(inputs)
         
             # save the reconstruction loss and l1 penalty
             reconstruction_losses.append(reconstruction_loss.item())
-            l1_penalties.append(l1_penalty.item())
+            l2_penalties.append(l2_penalty.item())
             # Calculate total loss (reconstruction + sparsity penalty)
-            total_loss = reconstruction_loss + config['lambda'] * l1_penalty  # You can tune the weight (0.1) for L1 penalty
+            total_loss = reconstruction_loss + config['lambda'] * l2_penalty  # You can tune the weight (0.1) for L1 penalty
 
             # Backpropagation
             total_loss.backward()
@@ -159,20 +158,20 @@ def train_layer_SAE(model_size,layer):
         print(f'Epoch [{epoch+1}/{config["num_epochs"]}], Loss: {epoch_loss/len(train_loader):.4f}')
         #calculate the mean of the reconstruction loss and l1 penalty and save them in a list   
         reconstruction_losses = np.mean(reconstruction_losses)
-        l1_penalties = np.mean(l1_penalties)
+        l2_penalties = np.mean(l2_penalties)
         reconstruction_losses_list.append(reconstruction_losses)
-        l1_penalties_list.append(l1_penalties)
+        l2_penalties_list.append(l2_penalties)
 
     # evaluate the model
     sae_model.eval()
     with torch.no_grad():
         test_reconstruction_loss = 0
-        test_l1_penalty = 0
+        test_l2_penalty = 0
         for batch_idx, (inputs,) in enumerate(test_loader):
             inputs = inputs.to(device)
-            reconstruction_loss, l1_penalty, _, _ = sae_model(inputs)
+            reconstruction_loss, l2_penalty, _, _ = sae_model(inputs)
             test_reconstruction_loss += reconstruction_loss.item()
-            test_l1_penalty += l1_penalty.item()
+            test_l2_penalty += l2_penalty.item()
 
     all_inputs = text_embedding.to(device)
     sparsity_ratio = calculate_sparsity(sae_model, all_inputs, 1e-4)
@@ -210,10 +209,10 @@ def train_layer_SAE(model_size,layer):
     # # train the logistic regression model with train test split
     # original_test_accuracy = train_logistic_regression(text_embedding, choice_data)
     # reconstructed_test_accuracy = train_logistic_regression(reconstructed_embedding, choice_data)
-    return test_reconstruction_loss / len(test_loader), test_l1_penalty / len(test_loader), sparsity_neuron, sparsity_ratio
+    return test_reconstruction_loss / len(test_loader), test_l2_penalty / len(test_loader), sparsity_neuron, sparsity_ratio
 
 def visualize_training_log(model_size, log_df):
-    # visualize how the test reconstruction loss, test l1 penalty, sparsity neuron, sparsity ratio, original test accuracy, and reconstructed test accuracy change as the layer increases in spearate figures
+    # visualize how the test reconstruction loss, test l2 penalty, sparsity neuron, sparsity ratio change as the layer increases in spearate figures
     # save the figures in the ../layer_SAE_model/{dataset_type}_dataset/SAE_training_log_{model_size}/pictures
     if not os.path.exists(f'../layer_SAE_model/dataset/SAE_training_log_{model_size}/pictures'):
         os.makedirs(f'../layer_SAE_model/dataset/SAE_training_log_{model_size}/pictures')
@@ -226,11 +225,11 @@ def visualize_training_log(model_size, log_df):
     plt.close()
     
     #plot the test l1 penalty
-    plt.plot(log_df['Layer'], log_df['Test L1 Penalty'], label='Test L1 Penalty')
-    plt.title('Test L1 Penalty')
+    plt.plot(log_df['Layer'], log_df['Test L2 Penalty'], label='Test L2 Penalty')
+    plt.title('Test L2 Penalty')
     plt.xlabel('Layer')
-    plt.ylabel('Test L1 Penalty')
-    plt.savefig(f'../layer_SAE_model/dataset/SAE_training_log_{model_size}/pictures/test_l1_penalty.png',dpi=300)
+    plt.ylabel('Test L2 Penalty')
+    plt.savefig(f'../layer_SAE_model/dataset/SAE_training_log_{model_size}/pictures/test_l2_penalty.png',dpi=300)
     plt.close()
 
     # plot the sparsity ratio
@@ -259,19 +258,19 @@ def train_all_layers_SAE(model_size):
     layer_files.sort()
     num_layers = len(layer_files)
     # initalize a dataframe to store the log of the training
-    log_df = pd.DataFrame(columns=['Layer', 'Test Reconstruction Loss', 'Test L1 Penalty', 'Sparsity Neuron', 'Sparsity Ratio'])
+    log_df = pd.DataFrame(columns=['Layer', 'Test Reconstruction Loss', 'Test L2 Penalty', 'Sparsity Neuron', 'Sparsity Ratio'])
     for layer in tqdm(range(num_layers), desc="Training Layers:"):
-        test_reconstruction_loss, test_l1_penalty, sparsity_neuron, sparsity_ratio = train_layer_SAE(model_size, layer)
+        test_reconstruction_loss, test_l2_penalty, sparsity_neuron, sparsity_ratio = train_layer_SAE(model_size, layer)
         test_reconstruction_loss = np.float32(test_reconstruction_loss)
-        test_l1_penalty = np.float32(test_l1_penalty)
+        test_l2_penalty = np.float32(test_l2_penalty)
         sparsity_neuron = np.float32(sparsity_neuron)
         sparsity_ratio = np.float32(sparsity_ratio)
-        print(f'Layer {layer}: Test Reconstruction Loss: {test_reconstruction_loss:.4f}, Test L1 Penalty: {test_l1_penalty:.4f}, Sparsity Ratio: {sparsity_ratio:.4f}')
+        print(f'Layer {layer}: Test Reconstruction Loss: {test_reconstruction_loss:.4f}, Test L2 Penalty: {test_l2_penalty:.4f}, Sparsity Ratio: {sparsity_ratio:.4f}')
         # add the log to the dataframe
         new_row = pd.DataFrame({
             'Layer': [layer], 
             'Test Reconstruction Loss': [test_reconstruction_loss], 
-            'Test L1 Penalty': [test_l1_penalty], 
+            'Test L2 Penalty': [test_l2_penalty], 
             'Sparsity Ratio': [sparsity_ratio]
             # 'Original Test Accuracy': [original_test_accuracy],
             # 'Reconstructed Test Accuracy': [reconstructed_test_accuracy]
