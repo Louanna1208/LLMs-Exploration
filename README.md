@@ -16,4 +16,5 @@ This repository includes implementations for running open-ended exploration expe
 ---
 
 ## Data
-You can get the LLMs data from this link https://osf.io/9swmp/files/osfstorage#
+You can get the LLMs data from this link [https://osf.io/9swmp/files/osfstorage#
+](https://osf.io/9swmp/files/osfstorage?view_only=f5704a73939a463bb899fe17c9e3d858)
