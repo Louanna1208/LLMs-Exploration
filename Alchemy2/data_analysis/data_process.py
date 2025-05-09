@@ -104,9 +104,9 @@ def LLM_data_preprocessing(file_path,model_name):
     # Reorganize DataFrame columns for clarity
     LLM_player_data = LLM_player_data[["model", "seed", "id", "temperature", "trial", "first", "second", "success", "results", "inventory_names", "top_logprob"]]
     # Filter rows where both 'first' and 'second' are in the inventory_names list
-    LLM_player_data = LLM_player_data[
-    LLM_player_data.apply(lambda row: row['first'] in row['inventory_names'] and row['second'] in row['inventory_names'], axis=1)
-]
+    #LLM_player_data = LLM_player_data[
+    #LLM_player_data.apply(lambda row: row['first'] in row['inventory_names'] and row['second'] in row['inventory_names'], axis=1)
+#]
     LLM_with_names = LLM_player_data.copy()
     # make the result =-1 is the name "failed"
     LLM_with_names['results'] = LLM_with_names['results'].apply(

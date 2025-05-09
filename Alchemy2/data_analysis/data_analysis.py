@@ -2,7 +2,7 @@
 import json
 import numpy as np
 import os
-os.chdir('/Github/LLMs_game/Alchemy2')
+os.chdir(r'/Github/LLMs_game/Alchemy2')
 import pandas as pd
 from data_analysis.data_process import LLM_data_preprocessing, Human_data_preprocessing
 from data_analysis.data_process import element_name_to_code, element_code_to_name
@@ -65,6 +65,20 @@ print(final_trial_500)
 # ten human best player at 500 trials
 print(Human_with_codes[Human_with_codes['trial'] == 500].sort_values(by='inventory', ascending=False).head(10))
 
+def fill_missing_inventory(df, trial_num):
+    filled_dfs = []
+    for uid, user_df in df.groupby('id'):
+        user_df = user_df.set_index('trial').sort_index()
+        # create a full index
+        full_index = pd.Index(range(trial_num), name='trial')
+        # rebuild the DataFrame, fill the missing
+        user_df = user_df.reindex(full_index)
+        user_df['id'] = uid
+        # fill the missing inventory with the previous value, if the first item is still missing, fill it with 4
+        user_df['inventory'] = user_df['inventory'].ffill().fillna(4)
+        filled_dfs.append(user_df.reset_index())
+    return pd.concat(filled_dfs, ignore_index=True)
+
 #------------------------------------------------------------------------------------------------
 # figure 1: plot the final inventory distribution
 #------------------------------------------------------------------------------------------------
@@ -76,13 +90,13 @@ def final_trial_inventory(data, trials=500, data_name='Human'):
     # color mapping for different LLM models
     colors = {
         'Human': '#A51C36',
-        'gpt-4o': '#7ABBDB',
+        'GPT-4o': '#7ABBDB',
         'LLaMA3.1-70B': '#DBB428',
         'LLaMA3.1-8B': '#84BA42',
         'o1': '#682478',
-        'gpt-4o(prompt-engineering)': '#4485C7',
+        'GPT-4o(prompt-engineering)': '#4485C7',
         'LLaMA3.1_70B_intervention': '#FFEE6F',
-        'deepseek-reasoner': '#00ff00'
+        'DeepSeek-R1': '#bcfce7'
     }
     # get inventory sizes
     inventory_sizes = grouped_data['inventory'].max()
@@ -131,14 +145,14 @@ def final_trial_inventory(data, trials=500, data_name='Human'):
     return inventory_sizes
 
 human_inventory = final_trial_inventory(Human_with_codes, data_name='Human')
-gpt4o_inventory = final_trial_inventory(Base_LLM_with_codes, data_name='gpt-4o')
+gpt4o_inventory = final_trial_inventory(Base_LLM_with_codes, data_name='GPT-4o')
 Llama3_70B_inventory = final_trial_inventory(Llama3_70B_LLM_with_codes, data_name='LLaMA3.1-70B')
 Llama3_8B_inventory = final_trial_inventory(Llama3_8B_LLM_with_codes, data_name='LLaMA3.1-8B')
 Base_LLM_best_temperature = Base_LLM_with_codes[Base_LLM_with_codes['temperature'] == 1.0]
-best_temperature_inventory = final_trial_inventory(Base_LLM_best_temperature, data_name='gpt-4o')
-gpt4o_prompt_engineering_inventory = final_trial_inventory(prompt_engineering_LLM_with_codes, data_name = 'gpt-4o(prompt-engineering)')
+best_temperature_inventory = final_trial_inventory(Base_LLM_best_temperature, data_name='GPT-4o')
+gpt4o_prompt_engineering_inventory = final_trial_inventory(prompt_engineering_LLM_with_codes, data_name = 'GPT-4o(prompt-engineering)')
 o1_inventory = final_trial_inventory(o1_LLM_with_codes, data_name = 'o1')
-deepseek_reasoner_inventory = final_trial_inventory(deepseek_reasoner_LLM_with_codes, data_name = 'deepseek-reasoner')
+deepseek_reasoner_inventory = final_trial_inventory(deepseek_reasoner_LLM_with_codes, data_name = 'DeepSeek-R1')
 
 # t-test between human and gpt-4o
 # Perform t-tests
@@ -154,13 +168,14 @@ def perform_t_test(group1, group2, group1_name, group2_name):
     print("\n")
 
 # Conduct t-tests
-perform_t_test(gpt4o_inventory, human_inventory, 'gpt-4o', 'Human')
+perform_t_test(gpt4o_inventory, human_inventory, 'GPT-4o', 'Human')
 perform_t_test(Llama3_70B_inventory, human_inventory, 'LLaMA3.1-70B', 'Human')
 perform_t_test(Llama3_8B_inventory, human_inventory, 'LLaMA3.1-8B', 'Human')
 perform_t_test(Llama3_8B_inventory, Llama3_70B_inventory, 'LLaMA3.1-8B', 'LLaMA3.1-70B')
-perform_t_test(gpt4o_inventory, Llama3_70B_inventory, 'gpt-4o', 'LLaMA3.1-70B')
-perform_t_test(gpt4o_inventory, gpt4o_prompt_engineering_inventory, 'gpt-4o', 'gpt-4o(prompt-engineering)')
+perform_t_test(gpt4o_inventory, Llama3_70B_inventory, 'GPT-4o', 'LLaMA3.1-70B')
+perform_t_test(gpt4o_inventory, gpt4o_prompt_engineering_inventory, 'GPT-4o', 'GPT-4o(prompt-engineering)')
 perform_t_test(o1_inventory, human_inventory, 'o1', 'Human')
+perform_t_test(deepseek_reasoner_inventory, human_inventory, 'DeepSeek-R1', 'Human')
 
 # Save inventory sizes to CSV (optional)
 #gpt4o_inventory.to_csv('output/data/gpt4o_inventory_sizes.csv', index=False)
@@ -173,27 +188,27 @@ perform_t_test(o1_inventory, human_inventory, 'o1', 'Human')
 #------------------------------------------------------------------------------------------------
 def plot_best_temperature_for_each_model(Base_LLM_with_codes,Llama3_70B_LLM_with_codes,Llama3_8B_LLM_with_codes,prompt_engineering_LLM_with_codes,deepseek_reasoner_LLM_with_codes,o1_LLM_with_codes, Human_with_codes, trial_num=500):
     # best temperature is the temperature=1.0
-    Base_LLM_best_temperature = Base_LLM_with_codes[Base_LLM_with_codes['temperature'] == 1.0]
-    Llama3_70B_LLM_best_temperature = Llama3_70B_LLM_with_codes[Llama3_70B_LLM_with_codes['temperature'] == 1.0]
-    Llama3_8B_LLM_best_temperature = Llama3_8B_LLM_with_codes[Llama3_8B_LLM_with_codes['temperature'] == 1.0]
+    Base_LLM_best_temperature = fill_missing_inventory(Base_LLM_with_codes[Base_LLM_with_codes['temperature'] == 1.0], trial_num)
+    Llama3_70B_LLM_best_temperature = fill_missing_inventory(Llama3_70B_LLM_with_codes[Llama3_70B_LLM_with_codes['temperature'] == 1.0], trial_num)
+    Llama3_8B_LLM_best_temperature = fill_missing_inventory(Llama3_8B_LLM_with_codes[Llama3_8B_LLM_with_codes['temperature'] == 1.0], trial_num)
     #plot the average inventory of each model
     plt.figure(figsize=(8, 6))
-    plt.plot(Base_LLM_best_temperature.groupby('trial')['inventory'].mean(), label='gpt-4o(temp = 1.0)', color='#7ABBDB', linewidth=2)
-    plt.plot(Llama3_70B_LLM_best_temperature.groupby('trial')['inventory'].mean(), label='LLaMA3.1-70B(temp = 1.0)', color='#DBB428', linewidth=2)
     plt.plot(Llama3_8B_LLM_best_temperature.groupby('trial')['inventory'].mean(), label='LLaMA3.1-8B(temp = 1.0)', color='#84BA42', linewidth=2)
-    plt.plot(prompt_engineering_LLM_with_codes.groupby('trial')['inventory'].mean(), label='gpt-4o(prompt-engineering)', color='#4485C7', linewidth=2)
+    plt.plot(Llama3_70B_LLM_best_temperature.groupby('trial')['inventory'].mean(), label='LLaMA3.1-70B(temp = 1.0)', color='#DBB428', linewidth=2)
+    plt.plot(Base_LLM_best_temperature.groupby('trial')['inventory'].mean(), label='GPT-4o(temp = 1.0)', color='#7ABBDB', linewidth=2)
+    plt.plot(prompt_engineering_LLM_with_codes.groupby('trial')['inventory'].mean(), label='GPT-4o(prompt-engineering)', color='#4485C7', linewidth=2)
     plt.plot(o1_LLM_with_codes.groupby('trial')['inventory'].mean(), label='o1', color='#682478', linewidth=2)
     plt.plot(Human_with_codes.groupby('trial')['inventory'].mean()[:trial_num], label='Human', color='#A51C36', linewidth=2)
-    #plt.plot(deepseek_reasoner_LLM_with_codes.groupby('trial')['inventory'].mean()[:trial_num], label='deepseek-reasoner', color='#00ff00', linewidth=2)
+    #plt.plot(deepseek_reasoner_LLM_with_codes.groupby('trial')['inventory'].mean()[:trial_num], label='DeepSeek-R1', color='#bcfce7', linewidth=2)
     plt.title('Best Temperatures of Each Model and Human Performance', fontsize=16)
     plt.xlabel('Trial', fontsize=16)
     plt.ylabel('Average Inventory', fontsize=16)
-    plt.legend(fontsize=12)
+    plt.legend(fontsize=12, loc='center left', bbox_to_anchor=(1, 0.5))
     plt.xticks(fontsize=14)
     plt.yticks(fontsize=14)
     plt.tight_layout()
-    #plt.savefig(f'output/picture/best_temperature_comparison(deepseek-reasoner).png', dpi=300)
-    plt.savefig(f'output/picture/best_temperature_comparison(prompt-engineering).png',dpi=300)
+    #plt.savefig(f'output/picture/best_temperature_comparison(DeepSeek-R1)_full.png', dpi=300)
+    plt.savefig(f'output/picture/best_temperature_comparison(prompt-engineering)_full.png',dpi=300)
     plt.show()
 
 plot_best_temperature_for_each_model(Base_LLM_with_codes,Llama3_70B_LLM_with_codes,Llama3_8B_LLM_with_codes,prompt_engineering_LLM_with_codes,deepseek_reasoner_LLM_with_codes,o1_LLM_with_codes, Human_with_codes, trial_num=500)
@@ -207,7 +222,7 @@ def plot_average_inventory_of_each_model_temperature(model_name):
     colors = {0: '#D75B4E', 0.3: '#2D8875', 0.7: '#EEB6D4', 1.0: '#B5CE4E'}
     plt.figure(figsize=(8, 6))
     # get the data for each temperature
-    if model_name == 'gpt-4o':
+    if model_name == 'GPT-4o':
         tem_group = Base_LLM_with_codes.groupby('temperature')
     elif model_name == 'LLaMA3.1-70B':
         tem_group = Llama3_70B_LLM_with_codes.groupby('temperature')
@@ -221,15 +236,17 @@ def plot_average_inventory_of_each_model_temperature(model_name):
         print(f'temperature = {temperature} Minimum inventory size: {final_inventory.min()}')
         print(f'temperature = {temperature} Mean inventory size: {final_inventory.mean()}')
         print(f'temperature = {temperature} Confidence Intervals:{sm.stats.DescrStatsW(final_inventory).tconfint_mean(alpha = 0.05)}')
+        temp_data = fill_missing_inventory(temp_data, trial_num)
         temp_data = temp_data.groupby('trial')['inventory'].mean() # get the mean inventory for each trial
         color = colors[temperature]
         plt.plot(temp_data, label=f'{model_name}(temp = {temperature})', color=color)
+        # plot the deepseek-reasoner data
+    plt.plot(deepseek_reasoner_LLM_with_codes.groupby('trial')['inventory'].mean()[:trial_num], label='DeepSeek-R1', color='#bcfce7', linewidth=2)
     # plot the human data
     plt.plot(Human_with_codes.groupby('trial')['inventory'].mean()[:trial_num], label='Human', color='#A51C36', linewidth=2)
     # plot the o1 data
     plt.plot(o1_LLM_with_codes.groupby('trial')['inventory'].mean()[:trial_num], label='o1', color='#682478', linewidth=2)
-    # plot the deepseek-reasoner data
-    plt.plot(deepseek_reasoner_LLM_with_codes.groupby('trial')['inventory'].mean()[:trial_num], label='deepseek-reasoner', color='#00ff00', linewidth=2)
+
     #plt.title(f'Human and o1 with {model_name} different temperatures comparison', fontsize=16)
     plt.xlabel('Trial', fontsize=16)
     plt.ylabel('Average Inventory', fontsize=16)
@@ -241,12 +258,12 @@ def plot_average_inventory_of_each_model_temperature(model_name):
     plt.ylim(0, 200)
     plt.legend(fontsize = 12)
     plt.tight_layout()
-    #plt.savefig(f'output/picture/{model_name}_different_temperature_comparison.png', dpi=300)
+    plt.savefig(f'output/picture/{model_name}_different_temperature_comparison_full.png', dpi=300)
     # save figure as pdf for latex
     #plt.savefig(f'output/picture/{model_name}_different_temperature_comparison.pdf', format='pdf',dpi=300)
     plt.show()
 
-plot_average_inventory_of_each_model_temperature('gpt-4o')
+plot_average_inventory_of_each_model_temperature('GPT-4o')
 plot_average_inventory_of_each_model_temperature('LLaMA3.1-70B')
 plot_average_inventory_of_each_model_temperature('LLaMA3.1-8B')
 
@@ -262,40 +279,49 @@ def final_trial_inventory_density(data, trials=500, data_name='Human', ax=None):
 
     # Color mapping for different models
     colors = {
-        'Human': '#A51C36',
-        'gpt-4o': '#7ABBDB',
-        'LLaMA3.1-70B': '#DBB428',
         'LLaMA3.1-8B': '#84BA42',
+        'LLaMA3.1-70B': '#DBB428',
+        'GPT-4o': '#7ABBDB',
+        'Human': '#A51C36',
+        'DeepSeek-R1': '#bcfce7',
         'o1': '#682478' 
     }
     
     if data_name not in colors:
         raise ValueError(f"Color for {data_name} is not defined in the colors dictionary.")
     
-    # Create or use existing axis
     if ax is None:
         ax = plt.gca()
     
-    # Density plot for the current dataset
-    sns.kdeplot(
-        data=inventory_sizes, 
-        fill=True, 
-        alpha=0.5, 
-        color=colors[data_name], 
-        linewidth=1.5,
-        label=f"{data_name} (Mean: {inventory_sizes.mean():.1f})",
-        ax=ax
-    )
+    # If only one player, plot a vertical line and add a legend entry
+    if len(inventory_sizes) == 1:
+        value = inventory_sizes.iloc[0]
+        ax.axvline(
+            x=value,
+            linestyle='dashed',
+            color=colors[data_name],
+            linewidth=2,
+            label=f"{data_name} (Mean: {value:.1f})"
+        )
+    else:
+        # Density plot for the current dataset
+        sns.kdeplot(
+            data=inventory_sizes, 
+            fill=True, 
+            alpha=0.5, 
+            color=colors[data_name], 
+            linewidth=1.5,
+            label=f"{data_name} (Mean: {inventory_sizes.mean():.1f})",
+            ax=ax
+        )
+        # Plot the mean as a vertical dashed line
+        ax.axvline(
+            x=inventory_sizes.mean(), 
+            linestyle='dashed', 
+            color=colors[data_name], 
+            linewidth=1,
+        )
 
-    # Plot the mean as a vertical dashed line
-    ax.axvline(
-        x=inventory_sizes.mean(), 
-        linestyle='dashed', 
-        color=colors[data_name], 
-        linewidth=1,
-    )
-
-    # Return inventory sizes for potential further analysis
     return inventory_sizes
 
 
@@ -326,15 +352,16 @@ def plot_multiple_datasets(datasets, trials=500, trim_percentile=0.99):
 
     # Save the figure
     plt.savefig('output/picture/final_inventory_distribution_density_comparison.png', dpi=300)
-    plt.savefig('output/picture/final_inventory_distribution_density_comparison.pdf', format='pdf', dpi=300)
+    #plt.savefig('output/picture/final_inventory_distribution_density_comparison.pdf', format='pdf', dpi=300)
     plt.show()
 
 # Define your datasets and names
 datasets = [
-    (Human_with_codes, 'Human'),
-    (Base_LLM_with_codes, 'gpt-4o'),
-    (Llama3_70B_LLM_with_codes, 'LLaMA3.1-70B'),
     (Llama3_8B_LLM_with_codes, 'LLaMA3.1-8B'),
+    (Llama3_70B_LLM_with_codes, 'LLaMA3.1-70B'),
+    (Base_LLM_with_codes, 'GPT-4o'),
+    (Human_with_codes, 'Human'),
+    (deepseek_reasoner_LLM_with_codes, 'DeepSeek-R1'),
     (o1_LLM_with_codes, 'o1')
 ]
 
@@ -439,7 +466,7 @@ class ModelConditionTracker:
 
     def get_and_save_temperature_condition_percentages(self, conditions, data):
         result = []
-        if self.model_name in {"Human", "gpt-4o(prompt-engineering)", "o1", "deepseek-reasoner"}:
+        if self.model_name in {"Human", "GPT-4o(prompt-engineering)", "o1", "DeepSeek-R1"}:
             percentages = self.calculate_model_percentages(data)
             if percentages:
                 mean_percentages = [percentages['mean'][condition] for condition in conditions]
@@ -496,7 +523,7 @@ class ModelConditionTracker:
             result_df = pd.DataFrame(result)
             #plot the condition percentages for each model's temperature
             # set the color of the line
-            if self.model_name == 'gpt-4o':
+            if self.model_name == 'GPT-4o':
                 color = '#7ABBDB'
             elif self.model_name == 'LLaMA3.1-70B':
                 color = '#DBB428'
@@ -520,7 +547,7 @@ class ModelConditionTracker:
             plt.xlabel('Temperature', fontsize=16)
             plt.ylim(0, 100)
             plt.ylabel('Percentage (%)', fontsize=16)
-            plt.legend(fontsize=12)
+            plt.legend(fontsize=12, loc='center left', bbox_to_anchor=(1, 0.5))
             plt.tight_layout()
             plt.savefig(f'output/picture/{self.model_name}_condition_percentages.png', dpi=300)
             # save figure as pdf for latex
@@ -532,7 +559,7 @@ class ModelConditionTracker:
 
     
 # call the class
-tracker = ModelConditionTracker(Base_LLM_with_codes, 'gpt-4o')
+tracker = ModelConditionTracker(Base_LLM_with_codes, 'GPT-4o')
 tracker.get_and_save_temperature_condition_percentages(tracker.conditions, Base_LLM_with_codes)
 tracker = ModelConditionTracker(Llama3_70B_LLM_with_codes, 'LLaMA3.1-70B')
 tracker.get_and_save_temperature_condition_percentages(tracker.conditions, Llama3_70B_LLM_with_codes)
@@ -542,13 +569,13 @@ tracker.get_and_save_temperature_condition_percentages(tracker.conditions, Llama
 tracker = ModelConditionTracker(Human_with_codes, 'Human')
 tracker.get_and_save_temperature_condition_percentages(tracker.conditions, Human_with_codes)
 #  the gpt-4o
-tracker = ModelConditionTracker(prompt_engineering_LLM_with_codes, 'gpt-4o(prompt-engineering)')
+tracker = ModelConditionTracker(prompt_engineering_LLM_with_codes, 'GPT-4o(prompt-engineering)')
 tracker.get_and_save_temperature_condition_percentages(tracker.conditions, prompt_engineering_LLM_with_codes)
 # o1
 tracker = ModelConditionTracker(o1_LLM_with_codes, 'o1')
 tracker.get_and_save_temperature_condition_percentages(tracker.conditions, o1_LLM_with_codes)
 # deepseek-reasoner
-tracker = ModelConditionTracker(deepseek_reasoner_LLM_with_codes, 'deepseek-reasoner')
+tracker = ModelConditionTracker(deepseek_reasoner_LLM_with_codes, 'DeepSeek-R1')
 tracker.get_and_save_temperature_condition_percentages(tracker.conditions, deepseek_reasoner_LLM_with_codes)
 
 #------------------------------------------------------------------------------------------------
@@ -599,16 +626,15 @@ def plot_bar_chart_with_best_temperature():
     fig, ax = plt.subplots(figsize=(10, 6))
 
     # Bars
-    ax.bar(x - 3 * width, gpt_4o_means, width, yerr=gpt_4o_stds, label='gpt-4o(temp = 1.0)', color='#7ABBDB', capsize=3)
+    ax.bar(x - 3 * width, llama3_8b_means, width, yerr=llama3_8b_stds, label='LLaMA3.1-8B(temp = 1.0)', color='#84BA42', capsize=3)
     ax.bar(x - 2 * width, llama3_70b_means, width, yerr=llama3_70b_stds, label='LLaMA3.1-70B(temp = 1.0)', color='#DBB428', capsize=3)
-    ax.bar(x - 1 * width, llama3_8b_means, width, yerr=llama3_8b_stds, label='LLaMA3.1-8B(temp = 1.0)', color='#84BA42', capsize=3)
-    ax.bar(x + 0 * width, o1_means, width, yerr=o1_stds, label='o1', color='#682478', capsize=3)
-    ax.bar(x + 1 * width, human_means, width, yerr=human_stds, label='Human', color='#A51C36', capsize=3)
-    # deepseek-reasoner
-    #ax.bar(x + 2 * width, deepseek_reasoner_means, width, yerr=deepseek_reasoner_stds, label='deepseek-reasoner', color='#00ff00', capsize=3)
-    # gpt-4o(prompt-engineering)
-    ax.bar(x + 2 * width, gpt4o_prompt_engineering_means, width, yerr=gpt4o_prompt_engineering_stds, label='gpt-4o(prompt-engineering)', color='#4485C7', capsize=3)
-
+    ax.bar(x - 1 * width, gpt_4o_means, width, yerr=gpt_4o_stds, label='GPT-4o(temp = 1.0)', color='#7ABBDB', capsize=3)
+    # GPT-4o(prompt-engineering)
+    #ax.bar(x + 0 * width, gpt4o_prompt_engineering_means, width, yerr=gpt4o_prompt_engineering_stds, label='GPT-4o(prompt-engineering)', color='#4485C7', capsize=3)
+    ax.bar(x + 0 * width, human_means, width, yerr=human_stds, label='Human', color='#A51C36', capsize=3)
+    ax.bar(x + 1 * width, o1_means, width, yerr=o1_stds, label='o1', color='#682478', capsize=3)
+    # DeepSeek-R1
+    ax.bar(x + 2 * width, deepseek_reasoner_means, width, yerr=deepseek_reasoner_stds, label='DeepSeek-R1', color='#bcfce7', capsize=3)
 
     # Labels and Titles
     ax.set_xlabel("Conditions", fontsize=16)
@@ -616,13 +642,14 @@ def plot_bar_chart_with_best_temperature():
     ax.set_title("Average Percentage of Each Condition", fontsize=16)
     ax.set_xticks(x)
     ax.set_xticklabels(conditions, ha="center", fontsize=12)  # Add slight rotation for clarity
-    ax.legend(fontsize=12)
+    ax.legend(fontsize=12, loc='center left', bbox_to_anchor=(1, 0.5))
 
     # Adjust layout to prevent clipping
     plt.yticks(fontsize=14)
     plt.tight_layout(pad=2)
-    plt.savefig(f'output/picture/LLM(6)_and_Human_behavior_comparison_fixed(prompt-engineering).png', dpi=300)
-    #plt.savefig(f'output/picture/LLM(6)_and_Human_behavior_comparison_fixed(deepseek-reasoner).png', dpi=300)
+    #plt.savefig(f'output/picture/LLM(6)_and_Human_behavior_comparison_fixed.png', dpi=300)
+    #plt.savefig(f'output/picture/LLM(6)_and_Human_behavior_comparison_fixed(prompt-engineering).png', dpi=300)
+    plt.savefig(f'output/picture/LLM(6)_and_Human_behavior_comparison_fixed(deepseek-reasoner).png', dpi=300)
     plt.show()
 
 plot_bar_chart_with_best_temperature()
@@ -632,7 +659,7 @@ plot_bar_chart_with_best_temperature()
 #------------------------------------------------------------------------------------------------
 def plot_llm_inventory_vs_human_levels(
     Base_LLM_with_codes, Llama3_70B_LLM_with_codes, Llama3_8B_LLM_with_codes,
-    prompt_engineering_LLM_with_codes, o1_LLM_with_codes, Human_with_codes, trial_num=500
+    prompt_engineering_LLM_with_codes, deepseek_reasoner_LLM_with_codes, o1_LLM_with_codes, Human_with_codes, trial_num=500
 ):
     # Filter LLM data to temperature = 1.0
     Base_LLM_best_temperature = Base_LLM_with_codes[Base_LLM_with_codes['temperature'] == 1.0]
@@ -644,11 +671,12 @@ def plot_llm_inventory_vs_human_levels(
     
     # Define colors for each model
     colors = {
-        'gpt-4o(temp = 1.0)': '#7ABBDB',
-        'LLaMA3.1-70B(temp = 1.0)': '#DBB428',
         'LLaMA3.1-8B(temp = 1.0)': '#84BA42',
+        'LLaMA3.1-70B(temp = 1.0)': '#DBB428',
+        'GPT-4o(temp = 1.0)': '#7ABBDB',
+        'Human': '#A51C36',
+        'DeepSeek-R1': '#bcfce7',
         'o1': '#682478',
-        'Human': '#A51C36'
     }
     
     # Fine-grained percentiles (e.g., 18%, 21%, ...)
@@ -681,9 +709,10 @@ def plot_llm_inventory_vs_human_levels(
 
     # Calculate and plot percentile levels for each model
     models = {
-        'gpt-4o(temp = 1.0)': Base_LLM_best_temperature,
-        'LLaMA3.1-70B(temp = 1.0)': Llama3_70B_LLM_best_temperature,
         'LLaMA3.1-8B(temp = 1.0)': Llama3_8B_LLM_best_temperature,
+        'LLaMA3.1-70B(temp = 1.0)': Llama3_70B_LLM_best_temperature,
+        'GPT-4o(temp = 1.0)': Base_LLM_best_temperature,
+        'DeepSeek-R1': deepseek_reasoner_LLM_with_codes,
         'o1': o1_LLM_with_codes
     }
     
@@ -708,7 +737,7 @@ def plot_llm_inventory_vs_human_levels(
     plt.ylim(0, 100)
     plt.xticks(fontsize=14)
     plt.yticks(fontsize=16)
-    plt.legend(fontsize=12)
+    plt.legend(fontsize=12, loc="lower right")
     plt.tight_layout()
 
     # Save and show plot
@@ -718,5 +747,5 @@ def plot_llm_inventory_vs_human_levels(
 # Call the function
 plot_llm_inventory_vs_human_levels(
     Base_LLM_with_codes, Llama3_70B_LLM_with_codes, Llama3_8B_LLM_with_codes,prompt_engineering_LLM_with_codes, 
-    o1_LLM_with_codes, Human_with_codes, trial_num=500
+    deepseek_reasoner_LLM_with_codes, o1_LLM_with_codes, Human_with_codes, trial_num=500
 )

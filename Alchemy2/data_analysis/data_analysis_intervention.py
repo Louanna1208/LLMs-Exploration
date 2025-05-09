@@ -2,7 +2,7 @@
 import json
 import numpy as np
 import os
-os.chdir('/Github/LLMs_game/Alchemy2')
+os.chdir('D:/Github/LLMs_game/Alchemy2')
 import pandas as pd
 from data_analysis.data_process import LLM_data_preprocessing, Human_data_preprocessing
 from data_analysis.data_process import element_name_to_code, element_code_to_name
@@ -44,14 +44,31 @@ intervention_8B_uncertainty_names, intervention_8B_uncertainty_codes = LLM_data_
 intervention_8B_empowerment_data_path = 'output/data/8B_intervention_empowerment_500_results.json'
 intervention_8B_empowerment_names, intervention_8B_empowerment_codes = LLM_data_preprocessing(intervention_8B_empowerment_data_path,'LLaMA3.1_intervention')
 
+
+def fill_missing_inventory(df, trial_num):
+    filled_dfs = []
+    for uid, user_df in df.groupby('id'):
+        user_df = user_df.set_index('trial').sort_index()
+        # create a full index
+        full_index = pd.Index(range(trial_num), name='trial')
+        # rebuild the DataFrame, fill the missing
+        user_df = user_df.reindex(full_index)
+        user_df['id'] = uid
+        # fill the missing inventory with the previous value, if the first item is still missing, fill it with 4
+        user_df['inventory'] = user_df['inventory'].ffill().fillna(4)
+        filled_dfs.append(user_df.reset_index())
+    return pd.concat(filled_dfs, ignore_index=True)
+
 #--------------------------------------------------------------------------------------------------
 # figure 1: plot the average inventory of each intervention
 #--------------------------------------------------------------------------------------------------
 def plot_average_inventory_of_each_intervention(model_name, intervention_name, original_data, intervention_data):
-    Llama3_original = original_data[original_data['temperature'] == 1.0]
     # set the trial number
     trial_num = 500
     plt.figure(figsize=(8, 6))
+    Llama3_original = original_data[original_data['temperature'] == 1.0]
+    Llama3_original = fill_missing_inventory(Llama3_original, trial_num)
+
     # get the data for each intervention
     intervention_group = intervention_data.groupby('model')
     for intervention in intervention_group.groups:
@@ -62,10 +79,13 @@ def plot_average_inventory_of_each_intervention(model_name, intervention_name, o
         print(f'{intervention_name} = {intervention} Minimum inventory size: {final_inventory.min()}')
         print(f'{intervention_name} = {intervention} Mean inventory size: {final_inventory.mean()}')
         print(f'{intervention_name} = {intervention} Confidence Intervals:{sm.stats.DescrStatsW(final_inventory).tconfint_mean(alpha = 0.05)}')
+        intervention_data = fill_missing_inventory(intervention_data, trial_num)
         intervention_data = intervention_data.groupby('trial')['inventory'].mean()[:trial_num] # get the mean inventory for each trial
+        # print each trial's mean inventory
+        print(f'{intervention_name} = {intervention} Mean inventory for each trial: {intervention_data}')
         plt.plot(intervention_data, label=f'{intervention_name}(intervention = {intervention})')
     # plot the original data
-    plt.plot(Llama3_original.groupby('trial')['inventory'].mean()[:trial_num], label='LLaMA3.1-70B(original)', color='#DBB428', linewidth=2)
+    plt.plot(Llama3_original.groupby('trial')['inventory'].mean()[:trial_num], label=f'{model_name}(original)', color='#DBB428', linewidth=2)
     if intervention_name == 'empowerment':
         plt.title(f'{model_name} Average Inventory of Empowerment Intervention', fontsize=16)
     else:
@@ -83,7 +103,7 @@ def plot_average_inventory_of_each_intervention(model_name, intervention_name, o
         plt.ylim(0, 30)
     plt.legend(fontsize = 12)
     plt.tight_layout()
-    plt.savefig(f'output/picture/{model_name}_average_inventory_of_{intervention_name}_intervention.png', dpi=300)
+    plt.savefig(f'output/picture/{model_name}_average_inventory_of_{intervention_name}_intervention_full.png', dpi=300)
     # save figure as pdf for latex
     #plt.savefig(f'output/picture/{model_name}_average_inventory_of_each_intervention.pdf', format='pdf',dpi=300)
     plt.show()
@@ -97,12 +117,16 @@ plot_average_inventory_of_each_intervention('LLaMA3.1-8B', 'empowerment', Llama3
 # figure 2: plot the average inventory of each intervention
 #--------------------------------------------------------------------------------------------------
 def inventory_of_interventions(model_name, original_data, empowerment_data, uncertainty_data):
-    Llama3_original = original_data[original_data['temperature'] == 1.0]
-    empowerment_data = empowerment_data[empowerment_data['model'] == '0.0']
-    uncertainty_data = uncertainty_data[uncertainty_data['model'] == '0.0']
     # set the trial number
     trial_num = 500
     plt.figure(figsize=(8, 6))
+    Llama3_original = original_data[original_data['temperature'] == 1.0]
+    Llama3_original = fill_missing_inventory(Llama3_original, trial_num)
+    empowerment_data = empowerment_data[empowerment_data['model'] == '0.0']
+    empowerment_data = fill_missing_inventory(empowerment_data, trial_num)
+    uncertainty_data = uncertainty_data[uncertainty_data['model'] == '0.0']
+    uncertainty_data = fill_missing_inventory(uncertainty_data, trial_num)
+
     # set color for original(LlaMA 8B #84BA42, LlaMA 70B #DBB428), empowerment_intervention(#C7C1DE), uncertainty_intervention(#BD7795)
     if model_name == 'LLaMA3.1-8B':
         plt.plot(Llama3_original.groupby('trial')['inventory'].mean()[:trial_num], label=f'{model_name} Original', color='#84BA42', linewidth=2)
@@ -124,7 +148,7 @@ def inventory_of_interventions(model_name, original_data, empowerment_data, unce
         plt.ylim(0, 30)
     plt.legend(fontsize = 12)
     plt.tight_layout()
-    plt.savefig(f'output/picture/{model_name}_average_inventory_of_interventions.png', dpi=300)
+    plt.savefig(f'output/picture/{model_name}_average_inventory_of_interventions_full.png', dpi=300)
     # save figure as pdf for latex
     #plt.savefig(f'output/picture/{model_name}_average_inventory_of_each_intervention.pdf', format='pdf',dpi=300)
     plt.show()
