@@ -45,6 +45,8 @@ prompt_engineering_LLM_with_names, prompt_engineering_LLM_with_codes = LLM_data_
 # Load deepseek-reasoner data
 reasoning_LLM_data_path = 'output/data/reasoning_deepseek-reasoner_500_results.json'
 deepseek_reasoner_LLM_with_names, deepseek_reasoner_LLM_with_codes = LLM_data_preprocessing(reasoning_LLM_data_path,'gpt-4o')
+#save_path = 'output/data/deepseek_reasoner_LLM_with_names_and_codes.csv'
+#deepseek_reasoner_LLM_with_names.to_csv(save_path, index=False)
 
 #Llama3 data
 Llama3_70B_LLM_data_path = 'output/data/Llama3_70B_500_results.json'
@@ -240,12 +242,15 @@ def plot_average_inventory_of_each_model_temperature(model_name):
         temp_data = temp_data.groupby('trial')['inventory'].mean() # get the mean inventory for each trial
         color = colors[temperature]
         plt.plot(temp_data, label=f'{model_name}(temp = {temperature})', color=color)
-        # plot the deepseek-reasoner data
-    plt.plot(deepseek_reasoner_LLM_with_codes.groupby('trial')['inventory'].mean()[:trial_num], label='DeepSeek-R1', color='#bcfce7', linewidth=2)
+    # deal the missing data
+    deepseek_reasoner = fill_missing_inventory(deepseek_reasoner_LLM_with_codes, trial_num)
+    o1 = fill_missing_inventory(o1_LLM_with_codes, trial_num)
+    # plot the deepseek-reasoner data
+    plt.plot(deepseek_reasoner.groupby('trial')['inventory'].mean()[:trial_num], label='DeepSeek-R1', color='#bcfce7', linewidth=2)
     # plot the human data
     plt.plot(Human_with_codes.groupby('trial')['inventory'].mean()[:trial_num], label='Human', color='#A51C36', linewidth=2)
     # plot the o1 data
-    plt.plot(o1_LLM_with_codes.groupby('trial')['inventory'].mean()[:trial_num], label='o1', color='#682478', linewidth=2)
+    plt.plot(o1.groupby('trial')['inventory'].mean()[:trial_num], label='o1', color='#682478', linewidth=2)
 
     #plt.title(f'Human and o1 with {model_name} different temperatures comparison', fontsize=16)
     plt.xlabel('Trial', fontsize=16)
@@ -547,7 +552,7 @@ class ModelConditionTracker:
             plt.xlabel('Temperature', fontsize=16)
             plt.ylim(0, 100)
             plt.ylabel('Percentage (%)', fontsize=16)
-            plt.legend(fontsize=12, loc='center left', bbox_to_anchor=(1, 0.5))
+            plt.legend(fontsize=12)
             plt.tight_layout()
             plt.savefig(f'output/picture/{self.model_name}_condition_percentages.png', dpi=300)
             # save figure as pdf for latex
@@ -616,8 +621,8 @@ def plot_bar_chart_with_best_temperature():
     o1_stds = [6.13, 6.13, 0.09, 0.09, 0]
 
     # deepseek-reasoner
-    deepseek_reasoner_means = [73.40, 22.00, 0.60, 0.80, 3.20]
-    deepseek_reasoner_stds = [0, 0, 0, 0, 0]
+    deepseek_reasoner_means = [77.04, 19.80, 0.64, 0.72, 1.80]
+    deepseek_reasoner_stds = [5.72, 6.68, 0.5, 0.5, 0.89]
 
     x = np.arange(len(conditions))  # Label locations
     width = 0.13  # Width of the bars
@@ -642,7 +647,7 @@ def plot_bar_chart_with_best_temperature():
     ax.set_title("Average Percentage of Each Condition", fontsize=16)
     ax.set_xticks(x)
     ax.set_xticklabels(conditions, ha="center", fontsize=12)  # Add slight rotation for clarity
-    ax.legend(fontsize=12, loc='center left', bbox_to_anchor=(1, 0.5))
+    ax.legend(fontsize=12)
 
     # Adjust layout to prevent clipping
     plt.yticks(fontsize=14)
@@ -666,6 +671,12 @@ def plot_llm_inventory_vs_human_levels(
     Llama3_70B_LLM_best_temperature = Llama3_70B_LLM_with_codes[Llama3_70B_LLM_with_codes['temperature'] == 1.0]
     Llama3_8B_LLM_best_temperature = Llama3_8B_LLM_with_codes[Llama3_8B_LLM_with_codes['temperature'] == 1.0]
     
+    # deal the missing data
+    deepseek_reasoner = fill_missing_inventory(deepseek_reasoner_LLM_with_codes, trial_num)
+    o1 = fill_missing_inventory(o1_LLM_with_codes, trial_num)
+    Base_LLM_best_temperature = fill_missing_inventory(Base_LLM_best_temperature, trial_num)
+    Llama3_70B_LLM_best_temperature = fill_missing_inventory(Llama3_70B_LLM_best_temperature, trial_num)
+    Llama3_8B_LLM_best_temperature = fill_missing_inventory(Llama3_8B_LLM_best_temperature, trial_num)
     # Initialize plot
     plt.figure(figsize=(8, 6))
     
@@ -712,8 +723,8 @@ def plot_llm_inventory_vs_human_levels(
         'LLaMA3.1-8B(temp = 1.0)': Llama3_8B_LLM_best_temperature,
         'LLaMA3.1-70B(temp = 1.0)': Llama3_70B_LLM_best_temperature,
         'GPT-4o(temp = 1.0)': Base_LLM_best_temperature,
-        'DeepSeek-R1': deepseek_reasoner_LLM_with_codes,
-        'o1': o1_LLM_with_codes
+        'DeepSeek-R1': deepseek_reasoner,
+        'o1': o1
     }
     
     for model_name, model_data in models.items():

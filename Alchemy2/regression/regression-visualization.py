@@ -4,20 +4,27 @@ import seaborn as sns
 import os
 import numpy as np
 # Set the working directory to the folder containing the CSV file
-os.chdir('/Github/LLMs_game/Alchemy2/regression')
+os.chdir(r'\Github\LLMs_game\Alchemy2\regression')
 #------------------------------------------------------------------------------------------------
 #plot the regression results by temperature and model
 #------------------------------------------------------------------------------------------------
 # Load the regression results data
-file_path = 'regression_results_summary(not_matched).csv'
+file_path = 'results/regression_results_summary(not_matched).csv'
 # which including two sub-datasets: whole and split
 regression_data = pd.read_csv(file_path)
 # Get the two sub-datasets
 whole_data = regression_data[regression_data['temperature'].isna()]
 split_data = regression_data[regression_data['temperature'].notna()]
 
-datasets = ['Human', 'gpt-4o', 'LLaMA3.1-8B', 'LLaMA3.1-70B', 'o1', 'deepseek-reasoner']
-colors = ['#A51C36', '#7ABBDB', '#84BA42', '#DBB428', '#FF6633','#BD7795','#00ff00']
+datasets = ['LLaMA3.1-8B', 'LLaMA3.1-70B', 'gpt-4o','Human','deepseek-reasoner','o1']
+colors = {
+    'LLaMA3.1-8B': '#84BA42',
+    'LLaMA3.1-70B': '#DBB428',
+    'gpt-4o': '#7ABBDB',
+    'Human': '#A51C36',
+    'deepseek-reasoner': '#bcfce7',
+    'o1': '#682478'
+}
 
 # Filter LLM data for temperature-specific results
 llm_temp_data = split_data[split_data['temperature'].notna()]
@@ -44,20 +51,28 @@ axes = axes.flatten()
 #fig.delaxes(axes[-1])
 
 # Define LLM models
-llm_models = ['gpt-4o', 'LLaMA3.1-8B', 'LLaMA3.1-70B']
+llm_models = ['LLaMA3.1-8B', 'LLaMA3.1-70B','gpt-4o']
 
 # Create subplots for each term
 for i, term in enumerate(subplot_terms):
     ax = axes[i]
     # Plot each LLM model's temperature data with error bars
     for j, model in enumerate(llm_models):
+        if model == 'gpt-4o':
+            label = "GPT-4o"
+        elif model == 'LLaMA3.1-8B':
+            label = "LLaMA3.1-8B"
+        elif model == 'LLaMA3.1-70B':
+            label = "LLaMA3.1-70B"
+        else:
+            label = model
         model_data = llm_temp_data[
             (llm_temp_data['term'] == term) & 
             (llm_temp_data['dataset'].str.contains(model))
         ]
         sns.lineplot(
             data=model_data,
-            x='temperature', y='estimate', marker='o', ax=ax, label=model, color=colors[j+1], linewidth=2
+            x='temperature', y='estimate', marker='o', ax=ax, label=label, color=colors[model], linewidth=2
         )
         # Add error bars
         #ax.errorbar(
@@ -69,12 +84,13 @@ for i, term in enumerate(subplot_terms):
     # Add horizontal line for human baseline
     human_estimate = human_data[human_data['term'] == term]['estimate'].values[0]
     ax.axhline(y=human_estimate, color='#A51C36', linestyle='--', label='Human')
+    # deepseek-reasoner data
+    deepseek_reasoner_estimate = deepseek_reasoner_data[deepseek_reasoner_data['term'] == term]['estimate'].values[0]
+    ax.axhline(y=deepseek_reasoner_estimate, color='#bcfce7', linestyle='-.', label='DeepSeek-R1')
     # o1 data
     o1_estimate = o1_data[o1_data['term'] == term]['estimate'].values[0]
     ax.axhline(y=o1_estimate, color='#682478', linestyle='-.', label='o1')
-    # deepseek-reasoner data
-    deepseek_reasoner_estimate = deepseek_reasoner_data[deepseek_reasoner_data['term'] == term]['estimate'].values[0]
-    ax.axhline(y=deepseek_reasoner_estimate, color='#00ff00', linestyle='-.', label='deepseek-reasoner')
+
 
     # Set subplot titles and labels
     ax.set_title(subplot_titles[i], fontsize=12)
@@ -92,7 +108,7 @@ plt.tight_layout()
 plt.suptitle("Regression estimates by temperature and model", y=0, fontsize=12)
 #plt.savefig('picture/regression_estimates_by_temperature_and_model(not_matched).png', dpi=300)
 #plt.savefig('picture/regression_estimates_by_temperature_and_model(not_matched).pdf', dpi=300)
-#plt.savefig('picture/regression_estimates_by_temperature_and_model(not_matched)_add.png', dpi=300)
+plt.savefig('picture/regression_estimates_by_temperature_and_model(not_matched)_add.png', dpi=300)
 #plt.savefig('picture/regression_estimates_by_temperature_and_model(not_matched)_add.pdf', dpi=300)
 plt.show()
 
